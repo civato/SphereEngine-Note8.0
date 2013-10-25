@@ -131,7 +131,7 @@ const struct cntry_locales_custom translate_custom_table[] = {
 	{"TL", "XZ", 11},	/* Universal if Country code is TIMOR-LESTE (EAST TIMOR) */
 	{"MH", "XZ", 11},	/* Universal if Country code is MARSHALL ISLANDS */
 	{"PK", "XZ", 11},	/* Universal if Country code is PAKISTAN */
-#ifdef BCM4334_CHIP
+#if defined(BCM4334_CHIP) || defined(BCM43241_CHIP)
 	{"RU", "RU", 13},
 	{"SG", "SG", 4},
 	{"US", "US", 46},
@@ -141,7 +141,9 @@ const struct cntry_locales_custom translate_custom_table[] = {
 	{"LA", "LA", 1},
 	{"LB", "LB", 2},
 	{"VN", "VN", 4},
-#endif
+	{"MA", "MA", 1},
+	{"TR", "TR", 7},
+#endif /* defined(BCM4334_CHIP) || defined(BCM43241_CHIP) */
 #ifdef BCM4330_CHIP
 	{"RU", "RU", 13},
 	{"US", "US", 5},

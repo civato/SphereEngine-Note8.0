@@ -28,6 +28,11 @@
 #ifdef CONFIG_SWITCH
 #include <linux/switch.h>
 #endif
+
+#ifdef CONFIG_MHL_SII8246_VE
+#include <linux/sii8246.h>
+#endif
+
 #include <linux/sii9234.h>
 
 #ifdef CONFIG_USB_HOST_NOTIFY
@@ -436,19 +441,43 @@ void max77693_muic_mhl_cb(int attached)
 		/*MHL_On(1);*/ /* GPIO_LEVEL_HIGH */
 		pr_info("MHL Attached !!\n");
 #ifdef CONFIG_SAMSUNG_MHL
+#ifdef CONFIG_MHL_SII8246_VE
+		pr_info("[MHL] max77693_muic_mhl_cb (): system_rev  = %d \n", system_rev );
+		if(system_rev > 8) {
+			sii8246_wake_lock();
+			sii8246_mhl_onoff_ex(1);
+		}else
+#endif
+{
 #ifdef CONFIG_MACH_MIDAS
 		sii9234_wake_lock();
 #endif
-		mhl_onoff_ex(1);
+#ifdef CONFIG_MHL_SII8246_VE
+			sii9234_mhl_onoff_ex(1);
+#else
+			mhl_onoff_ex(1);
 #endif
+#endif
+		}
 	} else {
 		/*MHL_On(0);*/ /* GPIO_LEVEL_LOW */
 		pr_info("MHL Detached !!\n");
 #ifdef CONFIG_SAMSUNG_MHL
-		mhl_onoff_ex(false);
+#ifdef CONFIG_MHL_SII8246_VE
+	if(system_rev > 8) {
+			sii8246_mhl_onoff_ex(false);
+			sii8246_wake_unlock();
+	}else
+	{
+			sii9234_mhl_onoff_ex(false);
+#else
+	{
+			mhl_onoff_ex(false);
+#endif
 #ifdef CONFIG_MACH_MIDAS
 		sii9234_wake_unlock();
 #endif
+	}
 #endif
 	}
 }

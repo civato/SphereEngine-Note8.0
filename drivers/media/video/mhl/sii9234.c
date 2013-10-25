@@ -46,6 +46,7 @@
 #include <linux/extcon.h>
 #endif
 
+
 /*////////////////////////////////////////////////////////////////////////////*/
 /*/////////////////////////	definition area		//////////////////////*/
 /*////////////////////////////////////////////////////////////////////////////*/
@@ -374,7 +375,11 @@ void sii9234_mhl_hpd_handler_false(void)
 }
 #endif
 
+#ifdef CONFIG_MHL_SII8246_VE
+u8 sii9234_mhl_onoff_ex(bool onoff)
+#else
 u8 mhl_onoff_ex(bool onoff)
+#endif
 {
 	struct sii9234_data *sii9234 = dev_get_drvdata(sii9244_mhldev);
 	int ret;
@@ -445,7 +450,11 @@ u8 mhl_onoff_ex(bool onoff)
 	}
 	return sii9234->rgnd;
 }
+#ifdef CONFIG_MHL_SII8246_VE
+EXPORT_SYMBOL(sii9234_mhl_onoff_ex);
+#else
 EXPORT_SYMBOL(mhl_onoff_ex);
+#endif
 
 static int mhl_tx_write_reg(struct sii9234_data *sii9234, unsigned int offset,
 			    u8 value)
@@ -2026,14 +2035,22 @@ static void sii9234_detection_callback_worker(struct work_struct *p)
 static void mhl_start_worker(struct work_struct *p)
 {
 	pr_debug("%s()\n", __func__);
+#ifdef CONFIG_MHL_SII8246_VE
+	sii9234_mhl_onoff_ex(1);
+#else
 	mhl_onoff_ex(1);
+#endif
 	return;
 }
 
 static void mhl_end_worker(struct work_struct *p)
 {
 	pr_debug("%s()\n", __func__);
+#ifdef CONFIG_MHL_SII8246_VE
+	sii9234_mhl_onoff_ex(0);
+#else
 	mhl_onoff_ex(0);
+#endif
 	return;
 }
 
@@ -3696,7 +3713,12 @@ static irqreturn_t sii9234_irq_thread(int irq, void *data)
 				pr_info("%s() normal goto_d3\n", __func__);
 			} else {
 				pr_info("%s() skip goto_d3\n", __func__);
+#ifdef CONFIG_MHL_SII8246_VE
+				sii9234_mhl_onoff_ex(0);
+#else
 				mhl_onoff_ex(0);
+#endif
+
 			}
 		}
 	}
@@ -3784,10 +3806,18 @@ static ssize_t sysfs_mhl_on_store(struct class *class,
 #ifdef CONFIG_MACH_MIDAS
 		sii9234_wake_lock();
 #endif
-		mhl_onoff_ex(1);
+#ifdef CONFIG_MHL_SII8246_VE
+		sii9234_mhl_onoff_ex(1);
+#else
+		mhl_onoff_ex(true);
+#endif
 	} else {
 		pr_info("%s() MHL Detached !!\n", __func__);
+#ifdef CONFIG_MHL_SII8246_VE
+		sii9234_mhl_onoff_ex(false);
+#else
 		mhl_onoff_ex(false);
+#endif
 #ifdef CONFIG_MACH_MIDAS
 		sii9234_wake_unlock();
 #endif
@@ -3956,7 +3986,13 @@ static void sii9234_extcon_work(struct work_struct *work)
 #ifdef CONFIG_MACH_MIDAS
 		sii9234_wake_lock();
 #endif
+#ifdef CONFIG_MHL_SII8246_VE
+		sii9234_mhl_onoff_ex(1);
+#else
 		mhl_onoff_ex(1);
+#endif
+
+
 #endif
 
 	} else {
@@ -3964,7 +4000,11 @@ static void sii9234_extcon_work(struct work_struct *work)
 		jack_event_handler("hdmi", 0);
 #endif
 #ifdef CONFIG_SAMSUNG_MHL
+#ifdef CONFIG_MHL_SII8246_VE
+		sii9234_mhl_onoff_ex(false);
+#else
 		mhl_onoff_ex(false);
+#endif
 #ifdef CONFIG_MACH_MIDAS
 		sii9234_wake_unlock();
 #endif

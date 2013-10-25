@@ -56,6 +56,9 @@
  */
 #define S3C_FB_MAX_WIN	(5)
 
+#define FENCE_SUPPORT		1
+#define FENCE_NOT_SUPPORT	0
+
 enum s3cfb_data_path_t {
 	DATA_PATH_FIFO = 0,
 	DATA_PATH_DMA = 1,
@@ -177,6 +180,7 @@ struct s3cfb_global {
 
 	struct sw_sync_timeline *timeline;
 	int			timeline_max;
+	unsigned int		support_fence;
 #ifdef CONFIG_HAS_WAKELOCK
 	struct early_suspend	early_suspend;
 	struct wake_lock	idle_lock;
@@ -330,6 +334,7 @@ struct s3c_reg_data {
 #endif
 #define S3CFB_SET_ALPHA_MODE		_IOW('F', 313, unsigned int)
 #define S3CFB_SET_INITIAL_CONFIG        _IO('F', 314)
+#define S3CFB_SUPPORT_FENCE	        _IOW('F', 315, unsigned int)
 
 extern struct fb_ops			s3cfb_ops;
 extern struct s3cfb_global	*get_fimd_global(int id);

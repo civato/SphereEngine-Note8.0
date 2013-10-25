@@ -22,6 +22,10 @@
 #define	CONFIG_USE_HPD_EN
 #endif
 
+#ifdef CONFIG_MHL_SII8246_VE
+#include <linux/sii8246.h>
+#endif
+
 #include "board-exynos4212.h"
 
 /*Event of receiving*/
@@ -403,6 +407,272 @@ static struct i2c_board_info __initdata i2c_devs_sii9234[] = {
 	},
 };
 
+#ifdef CONFIG_MHL_SII8246_VE
+static void sii8246_cfg_gpio(void)
+{
+	int ret;
+	printk(KERN_INFO "%s()\n", __func__);
+	s3c_gpio_cfgpin(GPIO_MHL_SDA_1_8V, S3C_GPIO_SFN(0x0));
+	s3c_gpio_setpull(GPIO_MHL_SDA_1_8V, S3C_GPIO_PULL_NONE);
+	s3c_gpio_cfgpin(GPIO_MHL_SCL_1_8V, S3C_GPIO_SFN(0x1));
+	s3c_gpio_setpull(GPIO_MHL_SCL_1_8V, S3C_GPIO_PULL_NONE);
+	s3c_gpio_cfgpin(GPIO_MHL_WAKE_UP, S3C_GPIO_INPUT);
+	irq_set_irq_type(MHL_WAKEUP_IRQ, IRQ_TYPE_EDGE_RISING);
+	s3c_gpio_setpull(GPIO_MHL_WAKE_UP, S3C_GPIO_PULL_DOWN);
+	ret = gpio_request(GPIO_MHL_INT, "MHL_INT");
+	if (unlikely(ret)) {
+		pr_info("[ERROR] %s(): failed on gpio_request()!\n", __func__);
+		return;
+	}
+	s5p_register_gpio_interrupt(GPIO_MHL_INT);
+	s3c_gpio_setpull(GPIO_MHL_INT, S3C_GPIO_PULL_DOWN);
+	irq_set_irq_type(MHL_INT_IRQ, IRQ_TYPE_EDGE_RISING);
+	s3c_gpio_cfgpin(GPIO_MHL_INT, GPIO_MHL_INT_AF);
+	s3c_gpio_cfgpin(GPIO_HDMI_EN, S3C_GPIO_OUTPUT);	/* HDMI_EN */
+	gpio_set_value(GPIO_HDMI_EN, GPIO_LEVEL_LOW);
+	s3c_gpio_setpull(GPIO_HDMI_EN, S3C_GPIO_PULL_NONE);
+	s3c_gpio_cfgpin(GPIO_MHL_RST, S3C_GPIO_OUTPUT);
+	s3c_gpio_setpull(GPIO_MHL_RST, S3C_GPIO_PULL_NONE);
+	gpio_set_value(GPIO_MHL_RST, GPIO_LEVEL_LOW);
+#if !defined(CONFIG_MACH_C1_KOR_LGT) && !defined(CONFIG_SAMSUNG_MHL_9290)
+#if !defined(CONFIG_MACH_P4NOTE) && !defined(CONFIG_MACH_T0) && \
+	!defined(CONFIG_MACH_M3) && !defined(CONFIG_MACH_SLP_T0_LTE) && \
+	!defined(CONFIG_MACH_KONA) && !defined(CONFIG_MACH_TAB3) && \
+	!defined(CONFIG_MACH_GD2) && !defined(CONFIG_MACH_SP7160LTE) && \
+	!defined(CONFIG_MACH_ZEST)
+	s3c_gpio_cfgpin(GPIO_MHL_SEL, S3C_GPIO_OUTPUT);
+	s3c_gpio_setpull(GPIO_MHL_SEL, S3C_GPIO_PULL_NONE);
+	gpio_set_value(GPIO_MHL_SEL, GPIO_LEVEL_LOW);
+#endif
+#endif
+#ifdef	CONFIG_USE_HPD_EN
+	s3c_gpio_cfgpin(GPIO_HDMI_HPD_EN, S3C_GPIO_INPUT);
+	s3c_gpio_setpull(GPIO_HDMI_HPD_EN, S3C_GPIO_PULL_DOWN);
+	//gpio_set_value(GPIO_HDMI_HPD_EN, GPIO_LEVEL_LOW);
+#endif
+	printk(KERN_INFO "[MHL] - Midas-mhl.c : %s \n",__func__);
+}
+static void sii8246_power_onoff(bool on)
+{
+#ifdef	CONFIG_MACH_TAB3
+	struct regulator *regulator_1_2v;
+	struct regulator *regulator_1_8v;
+	struct regulator *regulator_3_3v;
+#endif
+	printk(KERN_INFO "%s(%d)\n", __func__, on);
+	printk(KERN_INFO "[MHL] + Midas-mhl.c : %s \n",__func__);
+#ifdef	CONFIG_MACH_TAB3
+	regulator_1_2v = regulator_get(NULL, "vsil_1.2v");
+	if (IS_ERR(regulator_1_2v)) {
+		pr_info("[ERROR] cannot get the vsil_1.2v!\n");
+		return;
+	}
+	regulator_1_8v = regulator_get(NULL, "vcc_1.8v_mhl");
+	if (IS_ERR(regulator_1_8v)) {
+		pr_info("[ERROR] cannot get the vcc_1.8v_mhl!\n");
+		return;
+	}
+	regulator_3_3v = regulator_get(NULL, "vcc_3.3v_mhl");
+	if (IS_ERR(regulator_3_3v)) {
+		pr_info("[ERROR] cannot get the vcc_3.3v_mhl!\n");
+		return;
+	}
+#endif
+	if (on) {
+		/* To avoid floating state of the HPD pin *
+		 * in the absence of external pull-up     */
+		s3c_gpio_setpull(GPIO_HDMI_HPD, S3C_GPIO_PULL_NONE);
+		gpio_set_value(GPIO_HDMI_EN, GPIO_LEVEL_HIGH);
+
+		s3c_gpio_setpull(GPIO_MHL_SCL_1_8V, S3C_GPIO_PULL_DOWN);
+		s3c_gpio_setpull(GPIO_MHL_SCL_1_8V, S3C_GPIO_PULL_NONE);
+
+#ifdef	CONFIG_USE_HPD_EN
+		gpio_set_value(GPIO_HDMI_HPD_EN, GPIO_LEVEL_HIGH);
+#endif
+#ifdef	CONFIG_MACH_TAB3
+		regulator_enable(regulator_1_2v);
+		regulator_enable(regulator_1_8v);
+		regulator_enable(regulator_3_3v);
+#endif
+
+		/* sii9234_unmaks_interrupt(); // - need to add */
+		/* VCC_SUB_2.0V is always on */
+	} else {
+		gpio_set_value(GPIO_MHL_RST, GPIO_LEVEL_LOW);
+		usleep_range(10000, 20000);
+		gpio_set_value(GPIO_MHL_RST, GPIO_LEVEL_HIGH);
+
+		/* To avoid floating state of the HPD pin *
+		 * in the absence of external pull-up     */
+		s3c_gpio_setpull(GPIO_HDMI_HPD, S3C_GPIO_PULL_DOWN);
+		gpio_set_value(GPIO_HDMI_EN, GPIO_LEVEL_LOW);
+
+		gpio_set_value(GPIO_MHL_RST, GPIO_LEVEL_LOW);
+
+#ifdef	CONFIG_USE_HPD_EN
+		gpio_set_value(GPIO_HDMI_HPD_EN, GPIO_LEVEL_LOW);
+#endif
+#ifdef	CONFIG_MACH_TAB3
+		if (regulator_is_enabled(regulator_1_2v))
+			regulator_disable(regulator_1_2v);
+		else
+			regulator_force_disable(regulator_1_2v);
+		if (regulator_is_enabled(regulator_1_8v))
+			regulator_disable(regulator_1_8v);
+		else
+			regulator_force_disable(regulator_1_8v);
+		if (regulator_is_enabled(regulator_3_3v))
+			regulator_disable(regulator_3_3v);
+		else
+			regulator_force_disable(regulator_3_3v);
+#endif
+	}
+#ifdef	CONFIG_MACH_TAB3
+	regulator_put(regulator_1_2v);
+	regulator_put(regulator_1_8v);
+	regulator_put(regulator_3_3v);
+#endif
+	printk(KERN_INFO "[MHL] - Midas-mhl.c : %s \n",__func__);
+}
+#ifdef __MHL_NEW_CBUS_MSC_CMD__
+#if defined(CONFIG_MFD_MAX77693)
+static int sii8246_usb_op(bool on, int value)
+{
+	pr_info("func:%s bool on(%d) int value(%d)\n", __func__, on, value);
+	printk(KERN_INFO "[MHL] + Midas-mhl.c : %s \n",__func__);
+	if (on) {
+		if (value == 1)
+			max77693_muic_usb_cb(USB_CABLE_ATTACHED);
+		else if (value == 2)
+			max77693_muic_usb_cb(USB_POWERED_HOST_ATTACHED);
+		else
+			return 0;
+	} else {
+		if (value == 1)
+			max77693_muic_usb_cb(USB_CABLE_DETACHED);
+		else if (value == 2)
+			max77693_muic_usb_cb(USB_POWERED_HOST_DETACHED);
+		else
+			return 0;
+	}
+		printk(KERN_INFO "[MHL] - Midas-mhl.c : %s \n",__func__);
+	return 1;
+}
+#endif
+static void sii8246_vbus_present(bool on, int value)
+{
+	struct power_supply *psy = power_supply_get_by_name(PSY_CHG_NAME);
+	union power_supply_propval power_value;
+	u8 intval;
+	pr_info("%s: on(%d), vbus type(%d)\n", __func__, on, value);
+	printk(KERN_INFO "[MHL] + Midas-mhl.c : %s \n",__func__);
+	if (!psy) {
+		pr_info("%s: fail to get %s psy\n", __func__, PSY_CHG_NAME);
+		return;
+	}
+	power_value.intval = ((POWER_SUPPLY_TYPE_MISC << 4) |
+			(on << 2) | (value << 0));
+	pr_info("%s: value.intval(0x%x)\n", __func__, power_value.intval);
+	psy->set_property(psy, POWER_SUPPLY_PROP_ONLINE, &power_value);
+	printk(KERN_INFO "[MHL] - Midas-mhl.c : %s \n",__func__);
+	return;
+}
+#endif
+#ifdef CONFIG_SAMSUNG_MHL_UNPOWERED
+static int sii8246_get_vbus_status(void)
+{
+	struct power_supply *psy = power_supply_get_by_name(PSY_BAT_NAME);
+	union power_supply_propval value;
+	u8 intval;
+	printk(KERN_INFO "[MHL] + Midas-mhl.c : %s \n",__func__);
+	if (!psy) {
+		pr_info("%s: fail to get %s psy\n", __func__, PSY_BAT_NAME);
+		return -1;
+	}
+	psy->get_property(psy, POWER_SUPPLY_PROP_ONLINE, &value);
+	pr_info("%s: value.intval(0x%x)\n", __func__, value.intval);
+	printk(KERN_INFO "[MHL] - Midas-mhl.c : %s \n",__func__);
+	return (int)value.intval;
+}
+static void sii8246_otg_control(bool onoff)
+{
+	printk(KERN_INFO "[MHL] + Midas-mhl.c : %s \n",__func__);
+	otg_control(onoff);
+	gpio_request(GPIO_OTG_EN, "USB_OTG_EN");
+	gpio_direction_output(GPIO_OTG_EN, onoff);
+	gpio_free(GPIO_OTG_EN);
+	printk(KERN_INFO "[MHL] %s: onoff =%d\n", __func__, onoff);
+	printk(KERN_INFO "[MHL] - Midas-mhl.c : %s \n",__func__);
+	return;
+}
+#endif
+static void sii8246_reset(void)
+{
+	printk(KERN_INFO "[MHL] + Midas-mhl.c : %s \n",__func__);
+	s3c_gpio_cfgpin(GPIO_MHL_RST, S3C_GPIO_OUTPUT);
+	s3c_gpio_setpull(GPIO_MHL_RST, S3C_GPIO_PULL_NONE);
+	gpio_set_value(GPIO_MHL_RST, GPIO_LEVEL_LOW);
+	usleep_range(10000, 20000);
+	gpio_set_value(GPIO_MHL_RST, GPIO_LEVEL_HIGH);
+	printk(KERN_INFO "[MHL] - Midas-mhl.c : %s \n",__func__);
+}
+ int get_mhl_8246_int_irq(void)
+{
+
+	printk(KERN_INFO "%s, gpio: %d, irq:%d\n", __func__,
+				 GPIO_MHL_INT, gpio_to_irq(GPIO_MHL_INT));
+	return gpio_to_irq(GPIO_MHL_INT);
+}
+
+static struct sii8246_platform_data sii8246_pdata = {
+	.init = sii8246_cfg_gpio,
+#if defined(CONFIG_SAMSUNG_USE_11PIN_CONNECTOR) || \
+		defined(CONFIG_MACH_P4NOTE) || defined(CONFIG_MACH_SP7160LTE) || defined(CONFIG_MACH_KONA) || defined(CONFIG_MACH_TAB3)
+	.mhl_sel = NULL,
+#else
+	.mhl_sel = mhl_usb_switch_control,
+#endif
+	.hw_onoff = sii8246_power_onoff,
+	.hw_reset = sii8246_reset,
+	.get_irq = get_mhl_8246_int_irq,
+	.enable_vbus = NULL,
+	.vbus_present = NULL,
+#ifdef CONFIG_SAMSUNG_MHL_UNPOWERED
+	.get_vbus_status = sii8246_get_vbus_status,
+	.sii8246_otg_control = sii8246_otg_control,
+#endif
+#if defined(CONFIG_TAB3_01_BD)
+	.sii8246_muic_cb = muic_mhl_cb,
+//#else
+//	.sii8246_muic_cb = NULL,
+#endif
+#ifdef CONFIG_EXTCON
+	.extcon_name = "max77693-muic",
+#endif
+};
+
+
+static struct i2c_board_info __initdata i2c_devs_sii8246[] = {
+	{
+		I2C_BOARD_INFO("sii8246_mhl_tx", 0x72>>1),
+		.platform_data = &sii8246_pdata,
+	},
+	{
+		I2C_BOARD_INFO("sii8246_tpi", 0x7A>>1),
+		.platform_data = &sii8246_pdata,
+	},
+	{
+		I2C_BOARD_INFO("sii8246_hdmi_rx", 0x92>>1),
+		.platform_data = &sii8246_pdata,
+	},
+	{
+		I2C_BOARD_INFO("sii8246_cbus", 0xC8>>1),
+		.platform_data = &sii8246_pdata,
+	},
+};
+
+#endif
 static struct i2c_board_info i2c_dev_hdmi_ddc __initdata = {
 	I2C_BOARD_INFO("s5p_ddc", (0x74 >> 1)),
 };
@@ -411,9 +681,26 @@ static int __init midas_mhl_init(void)
 {
 	int ret;
 #define I2C_BUS_ID_MHL	15
-	ret = i2c_add_devices(I2C_BUS_ID_MHL, i2c_devs_sii9234,
-			ARRAY_SIZE(i2c_devs_sii9234));
-
+#ifdef CONFIG_MHL_SII8246_VE
+	if( system_rev > 8 ) 
+		{
+		ret = i2c_add_devices(I2C_BUS_ID_MHL, i2c_devs_sii8246,
+				ARRAY_SIZE(i2c_devs_sii8246));
+		if (ret < 0) {
+			pr_info( "[MHL] adding i2c fail - nodevice\n");
+			return -ENODEV;
+		}
+		sii8246_pdata.ddc_i2c_num = 5;
+		ret = i2c_add_devices(sii8246_pdata.ddc_i2c_num, &i2c_dev_hdmi_ddc, 1);
+		if (ret < 0) {
+			pr_info( "[MHL] adding ddc fail - nodevice\n");
+			return -ENODEV;
+		}
+	}else
+#endif
+	{
+		ret = i2c_add_devices(I2C_BUS_ID_MHL, i2c_devs_sii9234,
+				ARRAY_SIZE(i2c_devs_sii9234));
 	if (ret < 0) {
 		printk(KERN_ERR "[MHL] adding i2c fail - nodevice\n");
 		return -ENODEV;
@@ -435,6 +722,7 @@ static int __init midas_mhl_init(void)
 	if (ret < 0) {
 		printk(KERN_ERR "[MHL] adding ddc fail - nodevice\n");
 		return -ENODEV;
+	}
 	}
 
 	return 0;

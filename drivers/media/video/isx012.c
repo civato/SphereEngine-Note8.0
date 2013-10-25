@@ -2948,6 +2948,10 @@ static int isx012_set_preview_size(struct v4l2_subdev *sd)
 
 	isx012_writew(sd, REG_HSIZE_MONI, width);
 	isx012_writew(sd, REG_VSIZE_MONI, height);
+#if defined(CONFIG_MACH_KONA)
+	if (width == 720)
+		msleep_debug(50, true);
+#endif
 
 	state->preview.update_frmsize = 0;
 

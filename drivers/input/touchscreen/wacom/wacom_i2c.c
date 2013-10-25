@@ -640,9 +640,6 @@ static void wacom_i2c_resume_work(struct work_struct *work)
 #ifdef WACOM_STATE_CHECK
 	schedule_delayed_work(&wac_i2c->wac_statecheck_work, HZ * 30);
 #endif
-#ifdef WACOM_CHECK_SUSPEND_ENTER
-	wac_i2c->suspend_enter = false;
-#endif
 	printk(KERN_DEBUG "epen:%s\n", __func__);
 }
 
@@ -703,6 +700,9 @@ static void wacom_i2c_late_resume(struct early_suspend *h)
 	    container_of(h, struct wacom_i2c, early_suspend);
 
 	printk(KERN_DEBUG "epen:%s.\n", __func__);
+#ifdef WACOM_CHECK_SUSPEND_ENTER
+	wac_i2c->suspend_enter = false;
+#endif
 	wacom_i2c_enable(wac_i2c);
 }
 
@@ -1188,7 +1188,8 @@ static ssize_t epen_saving_mode_store(struct device *dev,
 			wacom_i2c_disable(wac_i2c);
 	} else
 #ifdef WACOM_CHECK_SUSPEND_ENTER
-	{	
+	{
+		printk(KERN_DEBUG "epen:%s : %d\n", __func__, wac_i2c->suspend_enter);
 		if(!wac_i2c->suspend_enter)
 			wacom_i2c_enable(wac_i2c);
 	}

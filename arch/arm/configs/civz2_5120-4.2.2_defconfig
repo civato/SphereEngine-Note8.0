@@ -1,6 +1,6 @@
 #
 # Automatically generated make config: don't edit
-# Linux/arm 3.0.31~CivZ-SpherEngine-Rev1.2-N5100~ Kernel Configuration
+# Linux/arm 3.0.31~CivZ-SphereEngine-Rev2.1~ Kernel Configuration
 #
 CONFIG_ARM=y
 CONFIG_HAVE_PWM=y
@@ -2323,6 +2323,7 @@ CONFIG_SAMSUNG_USE_11PIN_CONNECTOR=y
 CONFIG_SAMSUNG_SMARTDOCK=y
 CONFIG_SAMSUNG_WORKAROUND_HPD_GLANCE=y
 # CONFIG_SAMSUNG_MHL_UNPOWERED is not set
+CONFIG_MHL_SII8246_VE=y
 # CONFIG_RADIO_ADAPTERS is not set
 # CONFIG_TDMB is not set
 # CONFIG_ISDBT is not set
@@ -3289,6 +3290,7 @@ CONFIG_NLS_ISO8859_1=y
 # CONFIG_NLS_KOI8_R is not set
 # CONFIG_NLS_KOI8_U is not set
 CONFIG_NLS_UTF8=y
+CONFIG_RESTRICT_ROOTFS_SLAVE=y
 CONFIG_DYNAMIC_FSYNC=y
 
 #
